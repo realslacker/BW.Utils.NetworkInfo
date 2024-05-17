@@ -18,6 +18,7 @@ class BWNetworkInfoObject:IComparable {
     [ipaddress] $WildcardMask
     [ValidateRange(0,32)]
     [int] $CIDR = 32
+    [int] $Addresses = 0
     [int] $Usable = 0
     [ipaddress] $FirstUsable
     [ipaddress] $LastUsable
@@ -58,7 +59,8 @@ class BWNetworkInfoObject:IComparable {
         $this.WildcardMask = 4294967295 -bxor $This.SubnetMask.Address
         $this.Network      = $this.IPAddress.Address -band $this.SubnetMask.Address
         $this.Broadcast    = $this.WildcardMask.Address -bor $this.Network.Address
-        $this.Usable       = [math]::Pow(2,32-$this.CIDR)-2
+        $this.Addresses    = [math]::Pow(2,32-$this.CIDR)
+        $this.Usable       = $this.Addresses - 2
         $this.FirstUsable  = $this.Network.Address + 16777216
         $this.LastUsable   = $this.Broadcast.Address - 16777216
     }
@@ -115,12 +117,31 @@ class BWNetworkInfoObject:IComparable {
 }
 
 function Get-NetworkInfo {
-
+    <#
+    .SYNOPSIS
+    Get information about a network based on the IP address and netmask
+    .PARAMETER NetworkAddress
+    Network address formatted 0.0.0.0/0
+    .PARAMETER IPAddress
+    IP address formatted 0.0.0.0
+    .PARAMETER SubnetMask
+    Subnet mask formatted 0.0.0.0
+    .PARAMETER CIDR
+    CIDR mask in integer format
+    .EXAMPLE
+    Get-NetworkInfo '192.168.1.0/25'
+    .EXAMPLE
+    Get-NetworkInfo -IPAddress '192.168.1.0' -SubnetMask '255.255.255.128'
+    .EXAMPLE
+    Get-NetworkInfo -IPAddress '192.168.1.0' -CIDR 25
+    .EXAMPLE
+    '192.168.1.0/25' | Get-NetworkInfo
+    #>
     [CmdletBinding()]
     [OutputType( [BWNetworkInfoObject] )]
     param(
 
-        [Parameter( ParameterSetName='NetworkAddress', Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName )]
+        [Parameter( ParameterSetName='NetworkAddress', Mandatory, ValueFromPipeline, Position = 0 )]
         [string]
         $NetworkAddress,
 
@@ -154,15 +175,29 @@ function Get-NetworkInfo {
 }
 
 function Test-NetworkContains {
+    <#
+    .SYNOPSIS
+    Test if a network contains an IP address
+    .PARAMETER NetworkAddress
+    The network to test
+    .PARAMETER IPAddress
+    The IP address to check against the network
+    .EXAMPLE
+    Test-NetworkContains -NetworkAddress '192.168.1.0/25' -IPAddress '192.168.1.1' # returns $true
+    .EXAMPLE
+    Test-NetworkContains '192.168.1.0/25' '192.168.1.128' # returns $false
+    .EXAMPLE
+    '192.168.1.0/25' | Test-NetworkContains -IPAddress '192.168.1.1' # returns $true
+    #>
     [CmdletBinding()]
     [OutputType( [bool] )]
     param(
         
-        [Parameter( Mandatory )]
+        [Parameter( Mandatory, ValueFromPipeline, Position = 0 )]
         [BWNetworkInfoObject]
         $NetworkAddress,
 
-        [Parameter( Mandatory )]
+        [Parameter( Mandatory, Position = 1 )]
         [ipaddress]
         $IPAddress
 
