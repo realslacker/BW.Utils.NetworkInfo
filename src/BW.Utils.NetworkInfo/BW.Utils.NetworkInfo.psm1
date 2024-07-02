@@ -17,9 +17,9 @@ class BWNetworkInfoObject:IComparable {
     [ipaddress] $SubnetMask
     [ipaddress] $WildcardMask
     [ValidateRange(0,32)]
-    [int] $CIDR = 32
-    [int] $Addresses = 0
-    [int] $Usable = 0
+    [UInt32] $CIDR = 32
+    [UInt32] $Addresses = 0
+    [UInt32] $Usable = 0
     [ipaddress] $FirstUsable
     [ipaddress] $LastUsable
 
@@ -112,6 +112,44 @@ class BWNetworkInfoObject:IComparable {
     [int] CompareTo( $that ) {
         [BWNetworkInfoObject] $that = $that
         return ( -1, 1 )[[ipaddress]::NetworkToHostOrder($this.IPAddress.Address) -gt [ipaddress]::NetworkToHostOrder($that.IPAddress.Address)]
+    }
+
+    static [BWNetworkInfoObject] op_Addition( [BWNetworkInfoObject] $NetworkInfoObject, [UInt32] $IncrementAmount ) {
+        [byte[]] $Octets = $NetworkInfoObject.IPAddress.GetAddressBytes()
+        [array]::Reverse($Octets)
+        for ( $i = 0; $i -lt $Octets.Length; $i ++ ) {
+            try {
+                $Octets[$i] += $IncrementAmount
+                break
+            } catch {
+                $Octets[$i] = 0
+            }
+        }
+        [array]::Reverse($Octets)
+        $NextIPAddress = [ipaddress] $Octets
+        if ( $NetworkInfoObject.Contains($NextIPAddress) -or $NetworkInfoObject.CIDR -in @(0,32) ) {
+            return [BWNetworkInfoObject]::new($NextIPAddress, $NetworkInfoObject.CIDR)
+        }
+        throw ( 'Network {0} does not contain {1}' -f $NetworkInfoObject, $NextIPAddress )
+    }
+
+    static [BWNetworkInfoObject] op_Subtraction( [BWNetworkInfoObject] $NetworkInfoObject, [UInt32] $DecrementAmount ) {
+        [byte[]] $Octets = $NetworkInfoObject.IPAddress.GetAddressBytes()
+        [array]::Reverse($Octets)
+        for ( $i = 0; $i -lt $Octets.Length; $i ++ ) {
+            try {
+                $Octets[$i] -= $DecrementAmount
+                break
+            } catch {
+                $Octets[$i] = 255
+            }
+        }
+        [array]::Reverse($Octets)
+        $NextIPAddress = [ipaddress] $Octets
+        if ( $NetworkInfoObject.Contains($NextIPAddress) -or $NetworkInfoObject.CIDR -in @(0,32) ) {
+            return [BWNetworkInfoObject]::new($NextIPAddress, $NetworkInfoObject.CIDR)
+        }
+        throw ( 'Network {0} does not contain {1}' -f $NetworkInfoObject, $NextIPAddress )
     }
 
 }
